@@ -1,0 +1,17 @@
+{
+  "target_keys": [
+    "Griffon Egg",
+    "King of Greed"
+  ],
+  "last_updated": "",
+  "notification_settings": {
+    "sound_enabled": true,
+    "discord_enabled": false,
+    "selected_sound": "level_up.mp3",
+    "discord_webhook_url": ""
+  },
+  "timing_settings": {
+    "monitoring_interval": 5,
+    "discord_cooldown": 30
+  }
+}

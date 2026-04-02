@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Distribution builds
+builds/
+
+# Secrets & keys
+master.key
+server_master.key
+*.key
+
+# Database
+license_server.db
+*.db
+
+# License data
+authorized_licenses.json
+
+# Debug/temp files
+debug.png
+test_capture.png
+
+# Config (contains user-specific settings)
+texthunter_config.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
