@@ -292,7 +292,7 @@ class MonitoredRegion:
         if self.detection_rules:
             self.play_alert_for_rule(self.detection_rules[0])
     
-    def show_preview_window(self, parent):
+    def show_preview_window(self, parent, refresh_callback=None):
         """Show/update preview window with capture and OCR text"""
         if self.preview_window and self.preview_window.winfo_exists():
             self.update_preview_content()
@@ -318,11 +318,11 @@ class MonitoredRegion:
             font=('Segoe UI', 12, 'bold')
         ).pack(side='left', padx=15, pady=10)
         
-        # Refresh button in header
+        # Refresh button in header — triggers a fresh capture + OCR
         refresh_btn = tk.Button(
             header,
             text="🔄 Refresh",
-            command=self.update_preview_content,
+            command=refresh_callback or self.update_preview_content,
             bg='#3498db',
             fg='white',
             font=('Segoe UI', 9),
@@ -772,7 +772,7 @@ class TextHunterApp:
             self._create_icon_button(btn_frame, "▶", lambda r=region: self.start_region(r), '#27ae60')
         
         self._create_icon_button(btn_frame, "⚙️", lambda r=region: self.edit_region_settings(r), '#5d6d7e')
-        self._create_icon_button(btn_frame, "🗑️", lambda r=region: self.delete_region(r), '#95a5a6')
+        self._create_icon_button(btn_frame, "🗑", lambda r=region: self.delete_region(r), '#95a5a6')
         
         # Separator
         tk.Frame(card, bg='#0f0f23', height=1).pack(fill='x', padx=12, pady=5)
@@ -845,7 +845,8 @@ class TextHunterApp:
             fg='white',
             font=('Segoe UI', 10),
             relief='flat',
-            width=3,
+            padx=8,
+            pady=3,
             cursor='hand2',
             activebackground='#0f0f23'
         )
@@ -1059,6 +1060,129 @@ class TextHunterApp:
         tk.Spinbox(interval_frame, from_=1, to=60, textvariable=interval_var, bg='#1a1a2e', fg='#ffffff', font=('Segoe UI', 10), width=5, relief='flat').pack(side='left', padx=8)
         tk.Label(interval_frame, text="seconds", bg='#0f0f23', fg='#888899', font=('Segoe UI', 9)).pack(side='left')
         
+        # Capture Region Section
+        section_label(content, "Capture Region", "📍")
+        
+        # Show current region info
+        region_info_frame = tk.Frame(content, bg='#1a1a2e', padx=12, pady=10)
+        region_info_frame.pack(fill='x', pady=(0, 10))
+        
+        type_info = {
+            'screen_region': ('📺', 'Screen Region', '#3498db'),
+            'window_region': ('🪟', 'Window Region', '#9b59b6'),
+            'full_window': ('🖥️', 'Full Window', '#27ae60')
+        }.get(region.region_type, ('❓', 'Not Set', '#666688'))
+        
+        region_type_label = tk.Label(
+            region_info_frame,
+            text=f"{type_info[0]} {type_info[1]}",
+            bg='#1a1a2e',
+            fg=type_info[2],
+            font=('Segoe UI', 10, 'bold')
+        )
+        region_type_label.pack(anchor='w')
+        
+        # Show region details
+        if region.region_type == 'screen_region' and region.region_data:
+            details = f"Position: ({region.region_data.get('left', 0)}, {region.region_data.get('top', 0)}) | Size: {region.region_data.get('width', 0)}x{region.region_data.get('height', 0)}"
+        elif region.region_type == 'full_window' and region.region_data:
+            details = f"Window: {region.region_data.get('title', 'Unknown')[:40]}"
+        elif region.region_type == 'window_region' and region.region_data:
+            details = f"Window: {region.region_data.get('window_title', 'Unknown')[:30]} | Offset: ({region.region_data.get('relative_left', 0)}, {region.region_data.get('relative_top', 0)})"
+        else:
+            details = "No region configured"
+        
+        region_details_label = tk.Label(
+            region_info_frame,
+            text=details,
+            bg='#1a1a2e',
+            fg='#888899',
+            font=('Segoe UI', 9)
+        )
+        region_details_label.pack(anchor='w', pady=(4, 0))
+        
+        # Change region buttons
+        change_btn_frame = tk.Frame(content, bg='#0f0f23')
+        change_btn_frame.pack(anchor='w', pady=(0, 5))
+        
+        def change_to_screen_region():
+            dialog.withdraw()
+            self.root.withdraw()
+            selector = RegionSelector()
+            new_region_data = selector.select_region()
+            self.root.deiconify()
+            dialog.deiconify()
+            
+            if new_region_data:
+                region.region_type = 'screen_region'
+                region.region_data = new_region_data
+                # Update the display
+                region_type_label.config(text="📺 Screen Region", fg='#3498db')
+                region_details_label.config(text=f"Position: ({new_region_data.get('left', 0)}, {new_region_data.get('top', 0)}) | Size: {new_region_data.get('width', 0)}x{new_region_data.get('height', 0)}")
+        
+        def change_to_window():
+            dialog.withdraw()
+            window_selector = WindowSelector()
+            result = window_selector.select_window()
+            
+            if result:
+                if result['mode'] == 'full_window':
+                    region.region_type = 'full_window'
+                    region.region_data = {
+                        'title': result['window']['title'],
+                        'hwnd': result['window']['window']._hWnd if hasattr(result['window']['window'], '_hWnd') else None
+                    }
+                    dialog.deiconify()
+                    region_type_label.config(text="🖥️ Full Window", fg='#27ae60')
+                    region_details_label.config(text=f"Window: {result['window']['title'][:40]}")
+                elif result['mode'] == 'window_region':
+                    self.root.withdraw()
+                    region_selector = WindowRegionSelector(result['window'])
+                    new_region_data = region_selector.select_region_in_window()
+                    self.root.deiconify()
+                    dialog.deiconify()
+                    
+                    if new_region_data:
+                        region.region_type = 'window_region'
+                        region.region_data = {
+                            'window_title': result['window']['title'],
+                            'hwnd': result['window']['window']._hWnd if hasattr(result['window']['window'], '_hWnd') else None,
+                            'relative_left': new_region_data['relative_left'],
+                            'relative_top': new_region_data['relative_top'],
+                            'width': new_region_data['width'],
+                            'height': new_region_data['height']
+                        }
+                        region_type_label.config(text="🪟 Window Region", fg='#9b59b6')
+                        region_details_label.config(text=f"Window: {result['window']['title'][:30]} | Offset: ({new_region_data['relative_left']}, {new_region_data['relative_top']})")
+            else:
+                dialog.deiconify()
+        
+        tk.Button(
+            change_btn_frame,
+            text="📺 Screen Region",
+            command=change_to_screen_region,
+            bg='#3498db',
+            fg='white',
+            font=('Segoe UI', 9),
+            relief='flat',
+            padx=12,
+            pady=6,
+            cursor='hand2'
+        ).pack(side='left', padx=(0, 8))
+        
+        tk.Button(
+            change_btn_frame,
+            text="🪟 Window / Region",
+            command=change_to_window,
+            bg='#27ae60',
+            fg='white',
+            font=('Segoe UI', 9),
+            relief='flat',
+            padx=12,
+            pady=6,
+            cursor='hand2'
+        ).pack(side='left')
+        
         # Detection Rules Section
         section_label(content, "Detection Rules", "🎯")
         tk.Label(content, text="Each rule can have its own keywords, sound, and notifications", bg='#0f0f23', fg='#666688', font=('Segoe UI', 9)).pack(anchor='w', pady=(0, 10))
@@ -1135,7 +1259,7 @@ class TextHunterApp:
             if len(working_rules) > 1:
                 tk.Button(
                     btn_frame,
-                    text="🗑️",
+                    text="🗑",
                     command=lambda i=idx: delete_rule(i),
                     bg='#e74c3c',
                     fg='white',
@@ -1405,7 +1529,7 @@ class TextHunterApp:
                 region.last_ocr_text = text
                 
                 # Show preview
-                region.show_preview_window(self.root)
+                region.show_preview_window(self.root, refresh_callback=lambda: self.do_capture_and_preview(region))
                 
         except Exception as e:
             messagebox.showerror("Capture Error", f"Error capturing region:\n{str(e)}")
