@@ -1,17 +1,42 @@
 {
-  "target_keys": [
-    "Griffon Egg",
-    "King of Greed"
+  "regions": [
+    {
+      "id": "example1",
+      "name": "Chat Window",
+      "enabled": true,
+      "region_type": "window_region",
+      "region_data": {
+        "window_title": "Your Game Window Title",
+        "hwnd": null,
+        "relative_left": 10,
+        "relative_top": 500,
+        "width": 400,
+        "height": 200
+      },
+      "monitoring_interval": 5,
+      "detection_rules": [
+        {
+          "name": "Rare Spawns",
+          "keywords": ["Griffon Egg", "King of Greed"],
+          "sound_enabled": true,
+          "sound_file": "level_up.mp3",
+          "volume": 1.0,
+          "discord_enabled": true,
+          "discord_webhook_url": "https://discord.com/api/webhooks/your-webhook-url",
+          "discord_cooldown": 60
+        },
+        {
+          "name": "Common Items",
+          "keywords": ["Rare Item", "Epic Drop"],
+          "sound_enabled": true,
+          "sound_file": "notification.mp3",
+          "volume": 0.5,
+          "discord_enabled": false,
+          "discord_webhook_url": "",
+          "discord_cooldown": 30
+        }
+      ]
+    }
   ],
-  "last_updated": "",
-  "notification_settings": {
-    "sound_enabled": true,
-    "discord_enabled": false,
-    "selected_sound": "level_up.mp3",
-    "discord_webhook_url": ""
-  },
-  "timing_settings": {
-    "monitoring_interval": 5,
-    "discord_cooldown": 30
-  }
+  "last_updated": ""
 }
