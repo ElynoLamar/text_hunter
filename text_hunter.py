@@ -732,12 +732,6 @@ class TextHunterApp:
         )
         status_text_label.pack(side='left', padx=(2, 0))
         
-        # Store references for dynamic updates
-        region.status_widgets = {
-            'dot': status_dot,
-            'text': status_text_label,
-            'accent': accent
-        }
         name_var = tk.StringVar(value=region.name)
         name_entry = tk.Entry(
             header,
@@ -772,6 +766,14 @@ class TextHunterApp:
         # Control buttons
         btn_frame = tk.Frame(header, bg='#1a1a2e')
         btn_frame.pack(side='right')
+        
+        # Store references for dynamic updates
+        region.status_widgets = {
+            'dot': status_dot,
+            'text': status_text_label,
+            'accent': accent,
+            'btn_frame': btn_frame
+        }
         
         if region.running:
             if region.paused:
@@ -895,6 +897,27 @@ class TextHunterApp:
                 region.status_widgets['dot'].config(fg=status_color)
                 region.status_widgets['text'].config(text=status_text, fg=status_color)
                 region.status_widgets['accent'].config(bg=status_color)
+                
+                # Update buttons
+                btn_frame = region.status_widgets['btn_frame']
+                # Clear existing buttons
+                for widget in btn_frame.winfo_children():
+                    widget.destroy()
+                
+                # Recreate buttons based on current state
+                if region.running:
+                    if region.paused:
+                        self._create_icon_button(btn_frame, "▶", lambda r=region: self.resume_region(r), '#27ae60')
+                    else:
+                        self._create_icon_button(btn_frame, "⏸", lambda r=region: self.pause_region(r), '#f39c12')
+                    self._create_icon_button(btn_frame, "⏹", lambda r=region: self.stop_region(r), '#e74c3c')
+                else:
+                    self._create_icon_button(btn_frame, "▶", lambda r=region: self.start_region(r), '#27ae60')
+                
+                # Always add settings and delete buttons
+                self._create_icon_button(btn_frame, "⚙️", lambda r=region: self.edit_region_settings(r), '#5d6d7e')
+                self._create_icon_button(btn_frame, "🗑", lambda r=region: self.delete_region(r), '#95a5a6')
+                
             except:
                 pass  # Widgets might be destroyed, ignore
     
