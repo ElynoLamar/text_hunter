@@ -13,6 +13,7 @@ It supports multiple independent monitoring regions, per-region rules, sound not
 - Preview window showing the last capture frame + OCR text
 - Rule-based matching with partial/case-insensitive matching
 - Support for both `pygame` audio (preferred) and fallback `playsound`
+- **Bright pulsing visual effect** on region borders when keywords are detected
 - Single-instance prevention (lock file)
 - JSON config persistence via `texthunter_config.json`
 
@@ -71,7 +72,8 @@ Matching is case-insensitive and supports substring matching (`Griffon` matches 
 ## 🔔 Alerts
 - Audio play from the `sounds` folder. Default sound is `level_up.mp3`.
 - Discord notifications via webhook (per-rule cooldown to avoid spam).
-- GUI status indicator (stopped/running/paused; found state updates).
+- **Bright pulsing highlight effect** on region cards (vibrant green border pulses) when triggers are found.
+- GUI status indicator shows "Found: keywords" with running color when matches occur.
 
 ---
 

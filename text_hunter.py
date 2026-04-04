@@ -462,8 +462,8 @@ class TextHunterApp:
         """Start the main application"""
         self.root = tk.Tk()
         self.root.title("TextHunter")
-        self.root.geometry("620x520")
-        self.root.minsize(560, 420)
+        self.root.geometry("680x480")
+        self.root.minsize(620, 580)
         self.root.configure(bg='#0f0f23')
         self.root.attributes('-topmost', True)
         
@@ -686,9 +686,17 @@ class TextHunterApp:
         card_wrapper.pack(fill='x', padx=15, pady=6)
         
         # Main card with left border color based on status
-        status_color = '#27ae60' if region.running and not region.paused else (
-            '#f39c12' if region.paused else '#444466'
-        )
+        # Check if region has a "Found" status
+        if region.last_status and region.last_status.startswith("Found:"):
+            status_color = '#27ae60'  # Keep green for found (same as running)
+            status_text = region.last_status
+        else:
+            status_color = '#27ae60' if region.running and not region.paused else (
+                '#f39c12' if region.paused else '#444466'
+            )
+            status_text = "Running" if region.running and not region.paused else (
+                "Paused" if region.paused else "Stopped"
+            )
         
         # Left accent border
         accent = tk.Frame(card_wrapper, bg=status_color, width=4)
@@ -706,27 +714,30 @@ class TextHunterApp:
         status_frame = tk.Frame(header, bg='#1a1a2e')
         status_frame.pack(side='left')
         
-        status_label = tk.Label(
+        status_dot = tk.Label(
             status_frame,
             text="●",
             bg='#1a1a2e',
             fg=status_color,
             font=('Arial', 16)
         )
-        status_label.pack(side='left')
+        status_dot.pack(side='left')
         
-        status_text = "Running" if region.running and not region.paused else (
-            "Paused" if region.paused else "Stopped"
-        )
-        tk.Label(
+        status_text_label = tk.Label(
             status_frame,
             text=status_text,
             bg='#1a1a2e',
             fg=status_color,
             font=('Segoe UI', 8)
-        ).pack(side='left', padx=(2, 0))
+        )
+        status_text_label.pack(side='left', padx=(2, 0))
         
-        # Region name (editable)
+        # Store references for dynamic updates
+        region.status_widgets = {
+            'dot': status_dot,
+            'text': status_text_label,
+            'accent': accent
+        }
         name_var = tk.StringVar(value=region.name)
         name_entry = tk.Entry(
             header,
@@ -834,6 +845,58 @@ class TextHunterApp:
             padx=10,
             cursor='hand2'
         ).pack(side='right', padx=3)
+    
+    def highlight_region(self, region_id):
+        """Create a pulsing highlight effect on a region's card border when it finds a match"""
+        if region_id in self.region_frames:
+            card_wrapper = self.region_frames[region_id]
+            accent = card_wrapper.winfo_children()[0]  # The accent frame (left border)
+            original_color = accent.cget('bg')
+            highlight_color = '#00FF00'  # Bright pure green for more noticeable pulse
+            
+            def pulse(count=0):
+                try:
+                    if not accent.winfo_exists():
+                        return
+                    
+                    if count >= 6:  # 3 pulses (6 changes)
+                        accent.config(bg=original_color)
+                        return
+                    
+                    # Alternate between highlight and original
+                    new_color = highlight_color if count % 2 == 0 else original_color
+                    accent.config(bg=new_color)
+                    
+                    # Schedule next pulse (150ms intervals for smooth effect)
+                    self.root.after(150, lambda: pulse(count + 1))
+                    
+                except:
+                    pass  # Widget was destroyed, ignore
+            
+            pulse()  # Start the pulsing effect
+    
+    def update_region_status(self, region):
+        """Update the status display of a specific region without refreshing the whole list"""
+        if hasattr(region, 'status_widgets'):
+            # Determine status color and text
+            if region.last_status and region.last_status.startswith("Found:"):
+                status_color = '#27ae60'  # Keep green for found
+                status_text = region.last_status
+            else:
+                status_color = '#27ae60' if region.running and not region.paused else (
+                    '#f39c12' if region.paused else '#444466'
+                )
+                status_text = "Running" if region.running and not region.paused else (
+                    "Paused" if region.paused else "Stopped"
+                )
+            
+            # Update the widgets
+            try:
+                region.status_widgets['dot'].config(fg=status_color)
+                region.status_widgets['text'].config(text=status_text, fg=status_color)
+                region.status_widgets['accent'].config(bg=status_color)
+            except:
+                pass  # Widgets might be destroyed, ignore
     
     def _create_icon_button(self, parent, icon, command, bg):
         """Create a small icon button"""
@@ -1486,25 +1549,29 @@ class TextHunterApp:
         
         region.running = True
         region.paused = False
+        region.last_status = "Running"
         region.thread = threading.Thread(target=self.monitoring_loop, args=(region,), daemon=True)
         region.thread.start()
-        self.refresh_region_list()
+        self.update_region_status(region)
     
     def stop_region(self, region):
         """Stop monitoring a region"""
         region.running = False
         region.paused = False
-        self.refresh_region_list()
+        region.last_status = "Stopped"
+        self.update_region_status(region)
     
     def pause_region(self, region):
         """Pause monitoring a region"""
         region.paused = True
-        self.refresh_region_list()
+        region.last_status = "Paused"
+        self.update_region_status(region)
     
     def resume_region(self, region):
         """Resume monitoring a region"""
         region.paused = False
-        self.refresh_region_list()
+        region.last_status = "Running"
+        self.update_region_status(region)
     
     def do_capture_and_preview(self, region):
         """Capture region and show preview window"""
@@ -1545,7 +1612,8 @@ class TextHunterApp:
         for region in self.regions:
             region.running = False
             region.paused = False
-        self.refresh_region_list()
+            region.last_status = "Stopped"
+            self.update_region_status(region)
     
     def monitoring_loop(self, region):
         """Main monitoring loop for a region"""
@@ -1588,6 +1656,9 @@ class TextHunterApp:
                         if found_targets:
                             region.last_status = f"Found: {', '.join(found_targets)}"
                             print(f"[{region.name}] Found: {found_targets}")
+                            # Update status and highlight the region
+                            self.root.after(0, lambda: self.update_region_status(region))
+                            self.root.after(0, lambda: self.highlight_region(region.id))
                         else:
                             region.last_status = "Monitoring"
                         
